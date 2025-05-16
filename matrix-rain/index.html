@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Code Rain</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="matrix"></canvas>
+    <script>
+        // 获取画布元素及其2D上下文
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+        // 设置画布尺寸为窗口大小
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // 定义所有可能出现的字符集合
+        const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=[]{}|;:",./<>?';
+        // 将字符转换为数组以便随机选取
+        const charArr = chars.split('');
+        const fontSize = 13; // 字符大小（像素）
+        // 计算画布可容纳的列数（每列一个字符）
+        const columns = Math.floor(canvas.width / fontSize);
+        const rainCharSpacing = 8; // 字符间距（用于像素字符排列）
+        const displayInterval = 10; // 像素字符动画切换间隔（秒）
+        // 初始化每列代码雨的垂直位置（用于基础代码雨效果）
+        const drops = Array(columns).fill(0);
+
+        // FPS控制参数
+        const targetFPS = 30; // 目标帧率（每秒30帧）
+        const frameInterval = 1000 / targetFPS; // 每帧间隔时间（毫秒）
+        let lastFrameTime = 0; // 上一帧时间戳
+
+        // 定义需要以像素字符形式显示的文字数组（随机切换）
+        const strArrays = [
+            'CHINA',
+            'HACKER',
+        ];
+
+        const charArt = {
+            'A': [
+                ' ███ ',
+                '█   █',
+                '█   █',
+                '█████',
+                '█   █',
+                '█   █',
+                '     '
+            ],
+            'B': [
+                '████ ',
+                '█   █',
+                '████ ',
+                '█   █',
+                '█   █',
+                '████ ',
+                '     '
+            ],
+            'C': [
+                ' ███ ',
+                '█   █',
+                '█    ',
+                '█    ',
+                '█    ',
+                '█   █',
+                ' ███ '
+            ],
+            'D': [
+                '███  ',
+                '█  █ ',
+                '█   █',
+                '█   █',
+                '█  █ ',
+                '███  ',
+                '     '
+            ],
+            'E': [
+                '█████',
+                '█    ',
+                '████ ',
+                '█    ',
+                '█    ',
+                '█████',
+                '     '
+            ],
+            'F': [
+                '█████',
+                '█    ',
+                '████ ',
+                '█    ',
+                '█    ',
+                '█    ',
+                '     '
+            ],
+            'G': [
+                ' ███ ',
+                '█   █',
+                '█    ',
+                '█ ███',
+                '█   █',
+                ' ████',
+                '     '
+            ],
+            'H': [
+                '█   █',
+                '█   █',
+                '█████',
+                '█   █',
+                '█   █',
+                '█   █',
+                '     '
+            ],
+            'I': [
+                '█████',
+                '  █  ',
+                '  █  ',
+                '  █  ',
+                '  █  ',
+                '█████',
+                '     '
+            ],
+            'J': [
+                '   █ ',
+                '   █ ',
+                '   █ ',
+                '   █ ',
+                '█  █ ',
+                ' ███ ',
+                '     '
+            ],
+            'K': [
+                '█   █',
+                '█  █ ',
+                '███  ',
+                '█  █ ',
+                '█  █ ',
+                '█   █',
+                '     '
+            ],
+            'L': [
+                '█    ',
+                '█    ',
+                '█    ',
+                '█    ',
+                '█    ',
+                '█████',
+                '     '
+            ],
+            'M': [
+                '█   █',
+                '██ ██',
+                '█ █ █',
+                '█   █',
+                '█   █',
+                '█   █',
+                '     '
+            ],
+            'N': [
+                '█   █',
+                '██  █',
+                '█ █ █',
+                '█  ██',
+                '█   █',
+                '█   █',
+                '     '
+            ],
+            'O': [
+                ' ███ ',
+                '█   █',
+                '█   █',
+                '█   █',
+                '█   █',
+                ' ███ ',
+                '     '
+            ],
+            'P': [
+                '████ ',
+                '█   █',
+                '████ ',
+                '█    ',
+                '█    ',
+                '█    ',
+                '     '
+            ],
+            'Q': [
+                ' ███ ',
+                '█   █',
+                '█   █',
+                '█ █ █',
+                '█  ██',
+                ' ███ ',
+                '     '
+            ],
+            'R': [
+                '████ ',
+                '█   █',
+                '████ ',
+                '█  █ ',
+                '█   █',
+                '█   █',
+                '     '
+            ],
+            'S': [
+                ' ███ ',
+                '█    ',
+                ' ███ ',
+                '    █',
+                '    █',
+                ' ███ ',
+                '     '
+            ],
+            'T': [
+                '█████',
+                '  █  ',
+                '  █  ',
+                '  █  ',
+                '  █  ',
+                '  █  ',
+                '     '
+            ],
+            'U': [
+                '█   █',
+                '█   █',
+                '█   █',
+                '█   █',
+                '█   █',
+                ' ███ ',
+                '     '
+            ],
+            'V': [
+                '█   █',
+                '█   █',
+                '█   █',
+                ' █ █ ',
+                ' █ █ ',
+                '  █  ',
+                '     '
+            ],
+            'W': [
+                '█   █',
+                '█   █',
+                '█   █',
+                '█ █ █',
+                '█ █ █',
+                '██ ██',
+                '     '
+            ],
+            'X': [
+                '█   █',
+                ' █ █ ',
+                '  █  ',
+                ' █ █ ',
+                ' █ █ ',
+                '█   █',
+                '     '
+            ],
+            'Y': [
+                '█   █',
+                ' █ █ ',
+                '  █  ',
+                '  █  ',
+                '  █  ',
+                '  █  ',
+                '     '
+            ],
+            'Z': [
+                '█████',
+                '    █',
+                '   █ ',
+                '  █  ',
+                ' █   ',
+                '█████',
+                '     '
+            ],
+            '0': [
+                ' ███ ',
+                '█   █',
+                '█   █',
+                '█   █',
+                '█   █',
+                ' ███ ',
+                '     '
+            ],
+            '1': [
+                '  █  ',
+                ' ██  ',
+                '  █  ',
+                '  █  ',
+                '  █  ',
+                ' ███ ',
+                '     '
+            ],
+            '2': [
+                ' ███ ',
+                '█   █',
+                '    █',
+                '   █ ',
+                '  █  ',
+                '█████',
+                '     '
+            ],
+            '3': [
+                ' ███ ',
+                '█   █',
+                '    █',
+                ' ███ ',
+                '    █',
+                ' ███ ',
+                '     '
+            ],
+            '4': [
+                '█   █',
+                '█   █',
+                '█   █',
+                '█████',
+                '    █',
+                '    █',
+                '     '
+            ],
+            '5': [
+                '█████',
+                '█    ',
+                '████ ',
+                '    █',
+                '    █',
+                '████ ',
+                '     '
+            ],
+            '6': [
+                ' ███ ',
+                '█    ',
+                '█    ',
+                '█████',
+                '█   █',
+                ' ███ ',
+                '     '
+            ],
+            '7': [
+                '█████',
+                '    █',
+                '   █ ',
+                '  █  ',
+                ' █   ',
+                ' █   ',
+                '     '
+            ],
+            '8': [
+                ' ███ ',
+                '█   █',
+                '█   █',
+                ' ███ ',
+                '█   █',
+                ' ███ ',
+                '     '
+            ],
+            '9': [
+                ' ███ ',
+                '█   █',
+                '█   █',
+                ' ████',
+                '    █',
+                ' ███ ',
+                '     '
+            ],
+            ' ': [
+                '     ',
+                '     ',
+                '     ',
+                '     ',
+                '     ',
+                '     ',
+                '     '
+            ],
+            '!': [
+                '  █  ',
+                '  █  ',
+                '  █  ',
+                '  █  ',
+                '     ',
+                '  █  ',
+                '     '
+            ],
+            '?': [
+                ' ▄▄▄ ',
+                '█   █',
+                '    █',
+                '  ▄  ',
+                '     ',
+                '  █  ',
+                '     '
+            ],
+            '.': [
+                '     ',
+                '     ',
+                '     ',
+                '     ',
+                '     ',
+                '  █  ',
+                '     '
+            ],
+            ',': [
+                '     ',
+                '     ',
+                '     ',
+                '     ',
+                '  █  ',
+                '  █  ',
+                ' █   '
+            ],
+            '-': [
+                '     ',
+                '     ',
+                '     ',
+                '█████',
+                '     ',
+                '     ',
+                '     '
+            ],
+            '_': [
+                '     ',
+                '     ',
+                '     ',
+                '     ',
+                '     ',
+                '     ',
+                '█████'
+            ]
+        };
+
+        let pixelChars = [];
+        let centerY;
+
+        // 初始化像素字符数组（根据strArrays随机选择文字生成像素点）
+        function initializePixelChars() {
+            pixelChars = [];
+            // 随机选择一个目标文字
+            let word = strArrays[Math.floor(Math.random() * strArrays.length)];
+            const targetChars = word.split('');
+            // 计算文字显示的水平中心位置
+            const centerX = Math.floor(columns / 2) - Math.floor(targetChars.length * rainCharSpacing / 2);
+            // 计算文字显示的垂直中心位置（基于画布高度）
+            centerY = Math.floor(canvas.height / fontSize / 2) - 3; // 初始化centerY
+
+            // 遍历目标文字的每个字符
+            targetChars.forEach((char, charIndex) => {
+                const charPattern = charArt[char]; // 获取字符的像素图案
+                if (!charPattern) return;
+
+                // 遍历字符图案的每一行
+                charPattern.forEach((row, rowIndex) => {
+                    // 遍历行中的每个像素点
+                    row.split('').forEach((pixel, colIndex) => {
+                        if (pixel === '█') { // 仅处理实心像素点
+                            // 添加像素字符对象（包含位置、速度、状态等）
+                            pixelChars.push({
+                                x: centerX + charIndex * rainCharSpacing + colIndex,
+                                y: -10 - Math.random() * 100, // 初始Y位置（屏幕上方随机位置）
+                                speed: 0.7 + Math.random() * 0.4, // 下落速度（随机）
+                                landed: false, // 是否到达目标位置
+                                char: charArr[Math.floor(Math.random() * charArr.length)], // 随机字符
+                                rowIndex: rowIndex // 行索引（用于确定目标Y位置）
+                            });
+                        }
+                    });
+                });
+            });
+        }
+
+        // 动画主绘制函数（通过requestAnimationFrame循环调用）
+        function draw(timestamp) {
+            // FPS控制：确保每帧间隔不小于目标间隔
+            if (timestamp - lastFrameTime < frameInterval) {
+                requestAnimationFrame(draw);
+                return;
+            }
+            lastFrameTime = timestamp; // 更新上一帧时间戳
+
+            // 绘制半透明黑色背景（实现拖尾效果）
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // 设置基础代码雨的颜色和字体
+            ctx.fillStyle = '#0F0'; // 绿色
+            ctx.font = fontSize + 'px monospace'; // 等宽字体
+
+            // 绘制基础代码雨效果（每列下落的随机字符）
+            drops.forEach((y, i) => {
+                const text = charArr[Math.floor(Math.random() * charArr.length)]; // 随机选取字符
+                ctx.fillText(text, i * fontSize, y); // 在列i的位置绘制字符
+                // 更新字符垂直位置：超出画布或随机重置时回到顶部，否则继续下落
+                drops[i] = y > canvas.height || Math.random() > 0.975 ? 0 : y + fontSize;
+            });
+
+            // 绘制像素字符动画（目标文字的像素效果）
+            let animationComplete = pixelChars.every(pixel => pixel.landed); // 检查所有像素是否到达目标位置
+            let seconds = parseInt(timestamp / 1000); // 当前时间（秒）
+            if (!animationComplete || seconds % displayInterval != 0) {
+                // 动画未完成或未到切换时间时，更新并绘制像素字符
+                pixelChars.forEach(pixel => {
+                    ctx.fillStyle = '#FFF'; // 白色像素字符
+                    // 随机更新字符（增加动态效果）
+                    if (Math.random() < 0.1) {
+                        pixel.char = charArr[Math.floor(Math.random() * charArr.length)];
+                    }
+                    // 未到达目标位置时继续下落
+                    if (!pixel.landed) {
+                        pixel.y += pixel.speed;
+                        // 检查是否到达目标Y位置
+                        const targetY = centerY + pixel.rowIndex;
+                        if (pixel.y >= targetY) {
+                            pixel.y = targetY;
+                            pixel.landed = true; // 标记为已到达
+                        }
+                    }
+                    // 在计算出的位置绘制像素字符
+                    ctx.fillText(pixel.char, pixel.x * fontSize, pixel.y * fontSize);
+                });
+            } else {
+                // 动画完成且到达切换时间时，重新初始化像素字符（切换文字）
+                initializePixelChars();
+            }
+
+            // 递归调用实现动画循环
+            requestAnimationFrame(draw);
+        }
+
+        requestAnimationFrame(draw);
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+
+</html>
