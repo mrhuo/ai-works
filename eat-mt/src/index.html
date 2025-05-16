@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EAT MT</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            -webkit-touch-callout: none;
+            /*系统默认菜单被禁用*/
+            -webkit-user-select: none;
+            /*webkit浏览器*/
+            -kHTML-user-select: none;
+            /*早起浏览器*/
+            -moz-user-select: none;
+            /*火狐浏览器*/
+            -ms-user-select: none;
+            /*IE浏览器*/
+            user-select: none;
+            /*用户是否能够选中文本*/
+        }
+
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #sidebar {
+            width: 140px;
+            background: #f0f0f0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        #game-area {
+            flex: 1;
+            position: relative;
+        }
+
+        #canvas {
+            background: green;
+        }
+
+        #logo {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+        }
+
+        #logo img {
+            width: 100px;
+            height: auto;
+            border-radius: 10px;
+            display: block;
+            overflow: hidden;
+        }
+
+        #logo h2 {
+            font-size: 16px;
+            color: white;
+            text-align: center;
+        }
+
+        #coordinate-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            text-align: right;
+            font-size: 14px;
+            line-height: 180%;
+        }
+
+        #copyright {
+            margin-top: auto;
+            color: #666;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        #copyright a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+    </style>
+    <script>
+        document.addEventListener('contextmenu', function (event) {
+            event.preventDefault();
+        }, false);
+    </script>
+</head>
+
+<body>
+    <div id="container">
+        <div id="game-area">
+            <div id="logo">
+                <img src="images/game-logo.jpeg" style="width: 80px; height: auto;">
+                <h2>EAT MT</h2>
+            </div>
+            <canvas id="canvas"></canvas>
+            <div id="coordinate-display">
+                <div id="hp-display">HP: <span id="hp-value">-</span></div>
+                <div id="mt-display">MT: <span id="mt-value">-</span></div>
+                <div>位置：<span id="player-x">0</span>, <span id="player-y">0</span></div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="main.js"></script>
+</body>
+
+</html>
