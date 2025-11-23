@@ -767,6 +767,19 @@ class PlayerComponent extends Component {
                     this.setState('run');
                 }
 
+                // 在加速状态下创建拖影效果
+                if (this.speedBoostActive) {
+                    // 每移动一定距离创建拖影
+                    if (this.trailCounter === undefined) {
+                        this.trailCounter = 0;
+                    }
+                    this.trailCounter += step;
+                    if (this.trailCounter >= 5) { // 每移动5像素创建一个拖影，更频繁
+                        this.createTrailEffect();
+                        this.trailCounter = 0;
+                    }
+                }
+
                 if (distance <= this.speed) {
                     this.gameObject.mesh.position.copy(this.targetPosition);
                     this.isMoving = false;
@@ -841,6 +854,38 @@ class PlayerComponent extends Component {
             this.isMoving = false;
             // 可以在这里添加死亡特效或音效
         }
+    }
+    
+    // 创建拖影效果
+    createTrailEffect() {
+        if (!this.speedBoostActive) return;
+        
+        // 创建拖影网格
+        const trailGeometry = new THREE.PlaneGeometry(50, 50);
+        const trailMaterial = new THREE.MeshBasicMaterial({
+            map: this.animationTextures.run,
+            transparent: true,
+            opacity: 0.4 // 增加初始透明度
+        });
+        
+        const trailMesh = new THREE.Mesh(trailGeometry, trailMaterial);
+        trailMesh.position.copy(this.gameObject.mesh.position);
+        trailMesh.rotation.copy(this.gameObject.mesh.rotation);
+        
+        // 添加到场景
+        this.gameObject.engine.scene.add(trailMesh);
+        
+        // 设置拖影消失动画
+        let opacity = 0.4;
+        const fadeInterval = setInterval(() => {
+            opacity -= 0.08; // 加快消失速度
+            if (opacity <= 0) {
+                clearInterval(fadeInterval);
+                this.gameObject.engine.scene.remove(trailMesh);
+            } else {
+                trailMesh.material.opacity = opacity;
+            }
+        }, 40); // 加快更新频率
     }
     
     // 播放死亡动画
