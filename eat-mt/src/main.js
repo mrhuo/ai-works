@@ -800,11 +800,18 @@ class PlayerComponent extends Component {
         for (const [id, other] of gameObjects) {
             if (id === 'player') continue;
             
-            // 检测与馒头、炸弹、钩子、生命药水和神速鞋的碰撞
-            if (other.getComponent && (other.getComponent('MantouComponent') || other.getComponent('BombComponent') || other.getComponent('WallHookComponent') || other.getComponent('HealthPotionComponent') || other.getComponent('SpeedShoeComponent'))) {
+            // 检测与馒头、炸弹、钩子、生命药水、神速鞋和盲盒的碰撞
+            if (other.getComponent && (other.getComponent('MantouComponent') || other.getComponent('BombComponent') || other.getComponent('WallHookComponent') || other.getComponent('HealthPotionComponent') || other.getComponent('SpeedShoeComponent') || other.getComponent('MysteryBoxComponent'))) {
                 const distance = this.gameObject.mesh.position.distanceTo(other.mesh.position);
                 
                 if (distance < GRID_SIZE) {
+                    console.log('玩家碰撞检测到对象:', id, '类型:', other.getComponent ? '有组件' : '无组件');
+                    
+                    // 检查是否是盲盒
+                    if (other.getComponent('MysteryBoxComponent')) {
+                        console.log('检测到盲盒碰撞!');
+                    }
+                    
                     // 触发碰撞事件
                     this.gameObject.onCollide(other);
                     other.onCollide(this.gameObject);
@@ -965,6 +972,119 @@ class WallHookComponent extends Component {
             // 通知游戏对象销毁
             this.gameObject.destroy();
         }
+    }
+}
+
+// 盲盒组件
+class MysteryBoxComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.lifetime = config.lifetime || 45000; // 45秒消失
+        this.createdAt = Date.now();
+        // 随机生成盲盒内容
+        this.contents = this.generateRandomContents();
+    }
+    
+    onAttach() {
+        const GRID_SIZE = 50;
+        const boxGeometry = new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE);
+        
+        const boxTexture = new THREE.TextureLoader().load('assets/item_box.png');
+        const boxMaterial = new THREE.MeshBasicMaterial({
+            map: boxTexture,
+            transparent: true
+        });
+        
+        this.gameObject.mesh = new THREE.Mesh(boxGeometry, boxMaterial);
+        
+        // 播放出现音效
+        this.gameObject.engine.playSound('mysterybox_spawn');
+    }
+    
+    update(deltaTime) {
+        // 生命周期检查
+        if (Date.now() - this.createdAt > this.lifetime) {
+            this.gameObject.destroy();
+        }
+        if (this.isActive === false) {
+           this.gameObject.destroy();
+        }
+    }
+    
+    onCollision(other) {
+        console.log('盲盒碰撞检测开始');
+        console.log('other:', other);
+        console.log('other.getComponent:', other.getComponent);
+        
+        if (other.getComponent && other.getComponent('PlayerComponent')) {
+            console.log('检测到玩家碰撞，开始处理盲盒拾取');
+            
+            // 被玩家拾取
+            this.gameObject.engine.playSound('mysterybox_pickup');
+            this.gameObject.engine.createFloatingText('获得盲盒!', '#ff69b4');
+            this.gameObject.engine.playGetItemSound();
+            
+            // 添加到物品栏
+            const item = {
+                name: '盲盒',
+                type: 'mysterybox',
+                count: 1,
+                color: '#ff69b4',
+                contents: this.contents // 保存盲盒内容
+            };
+            
+            console.log('盲盒内容:', this.contents);
+            
+            // 尝试添加到物品栏
+            const added = inventorySystem.addItem(item);
+            
+            if (added) {
+                console.log('盲盒已添加到物品栏');
+            } else {
+                console.log('物品栏已满，无法添加盲盒');
+                this.gameObject.engine.createFloatingText('物品栏已满!', '#ff4444');
+            }
+            
+            // 设置组件为非活动状态
+            this.isActive = false;
+            // 通知游戏对象销毁
+            this.gameObject.destroy();
+        } else {
+            console.log('盲盒碰撞检测失败：没有找到PlayerComponent或getComponent方法');
+        }
+    }
+    
+    // 生成随机盲盒内容
+    generateRandomContents() {
+        const itemTypes = [
+            { type: 'mantou', name: '馒头', weight: 30 },
+            { type: 'healthpotion', name: '生命药水', weight: 15 },
+            { type: 'wallhook', name: '钩子', weight: 20 },
+            { type: 'speedshoe', name: '神速鞋', weight: 10 },
+            { type: 'bomb', name: '炸弹', weight: 25 }
+        ];
+        
+        // 根据权重随机选择物品类型
+        const totalWeight = itemTypes.reduce((sum, item) => sum + item.weight, 0);
+        let randomWeight = Math.random() * totalWeight;
+        
+        let selectedType = itemTypes[0];
+        for (const item of itemTypes) {
+            randomWeight -= item.weight;
+            if (randomWeight <= 0) {
+                selectedType = item;
+                break;
+            }
+        }
+        
+        // 随机数量（1-3个）
+        const count = Math.floor(Math.random() * 3) + 1;
+        
+        return {
+            type: selectedType.type,
+            name: selectedType.name,
+            count: count
+        };
     }
 }
 
@@ -1357,6 +1477,8 @@ class InventorySystem {
         // 根据物品类型执行不同的使用逻辑
         if (item.type === 'wallhook') {
             this.useWallHook(targetPosition);
+        } else if (item.type === 'mysterybox') {
+            this.useMysteryBox();
         } else {
             // 其他物品的使用逻辑
             console.log(`使用物品: ${item.name} 在位置 (${targetPosition.x}, ${targetPosition.y})`);
@@ -1418,6 +1540,128 @@ class InventorySystem {
             // 目标位置没有对象
             gameEngine.createFloatingText('没有目标', '#ff4444');
         }
+    }
+    
+    // 使用盲盒
+    useMysteryBox() {
+        const item = this.slots[this.selectedSlot];
+        if (!item || !item.contents) return;
+        
+        // 获取盲盒内容
+        const contents = item.contents;
+        
+        // 显示开盒提示
+        gameEngine.createFloatingText(`获得 ${contents.name} x${contents.count}!`, '#ff69b4');
+        
+        // 根据内容类型执行不同的逻辑
+        switch(contents.type) {
+            case 'mantou':
+                // 直接增加HP（每个馒头+5HP）
+                const mantouHealAmount = 5 * contents.count;
+                gameEngine.HP += mantouHealAmount;
+                if (gameEngine.HP > gameEngine.MAX_HP) {
+                    gameEngine.HP = gameEngine.MAX_HP;
+                }
+                gameEngine.createFloatingText(`+${mantouHealAmount} HP`, '#44ff44');
+                
+                // 更新HP显示
+                const hpDisplay = document.getElementById('hp-value');
+                if (hpDisplay) {
+                    hpDisplay.textContent = gameEngine.HP;
+                }
+                break;
+            case 'healthpotion':
+                // 直接增加HP（每个药水+20HP）
+                const healAmount = 20 * contents.count;
+                gameEngine.HP += healAmount;
+                if (gameEngine.HP > gameEngine.MAX_HP) {
+                    gameEngine.HP = gameEngine.MAX_HP;
+                }
+                gameEngine.createFloatingText(`+${healAmount} HP`, '#ff69b4');
+                
+                // 更新HP显示
+                const hpDisplay2 = document.getElementById('hp-value');
+                if (hpDisplay2) {
+                    hpDisplay2.textContent = gameEngine.HP;
+                }
+                break;
+            case 'wallhook':
+                // 添加到物品栏
+                const wallhookItem = {
+                    name: '钩子',
+                    type: 'wallhook',
+                    count: contents.count,
+                    color: '#ffaa00'
+                };
+                const wallhookAdded = this.addItem(wallhookItem);
+                if (!wallhookAdded) {
+                    gameEngine.createFloatingText('物品栏已满!', '#ff4444');
+                }
+                break;
+            case 'speedshoe':
+                // 直接应用速度加成
+                const player = gameEngine.getGameObject('player');
+                if (player && player.getComponent('PlayerComponent')) {
+                    const playerComponent = player.getComponent('PlayerComponent');
+                    
+                    // 检查是否已经有速度加成
+                    if (playerComponent.speedBoostActive) {
+                        // 已经有速度加成，只增加持续时间
+                        playerComponent.speedBoostDuration += 20000 * contents.count; // 增加20秒 * 数量
+                        gameEngine.createFloatingText(`速度加成延长 ${contents.count * 20}秒!`, '#00ffff');
+                    } else {
+                        // 第一次获得速度加成
+                        playerComponent.speedBoostActive = true;
+                        playerComponent.originalSpeed = playerComponent.speed;
+                        playerComponent.speedBoostDuration = 20000 * contents.count; // 20秒 * 数量
+                        
+                        // 速度翻倍
+                        playerComponent.speed = playerComponent.originalSpeed * 2;
+                        gameEngine.createFloatingText(`速度翻倍 ${contents.count * 20}秒!`, '#00ffff');
+                        
+                        // 启动计时器
+                        playerComponent.speedBoostTimer = setTimeout(() => {
+                            if (playerComponent && playerComponent.speedBoostActive) {
+                                playerComponent.speed = playerComponent.originalSpeed;
+                                playerComponent.speedBoostActive = false;
+                                gameEngine.createFloatingText('速度恢复正常', '#00ffff');
+                            }
+                        }, playerComponent.speedBoostDuration);
+                    }
+                }
+                break;
+            case 'bomb':
+                // 直接引爆所有炸弹，对玩家造成伤害
+                const bombDamage = 10 * contents.count;
+                gameEngine.HP -= bombDamage;
+                
+                // 检查玩家是否死亡
+                if (gameEngine.HP <= 0) {
+                    gameEngine.HP = 0;
+                    gameOver();
+                }
+                
+                // 显示伤害提示
+                gameEngine.createFloatingText(`-${bombDamage}`, '#ff4444');
+                gameEngine.createFloatingText('炸弹爆炸!', '#ff8800');
+                
+                // 更新HP显示
+                const hpDisplay3 = document.getElementById('hp-value');
+                if (hpDisplay3) {
+                    hpDisplay3.textContent = gameEngine.HP;
+                }
+                
+                // 播放爆炸音效
+                const bombExplosionSound = new Audio('assets/audios/bomb_bombed.mp3');
+                bombExplosionSound.volume = 0.8;
+                bombExplosionSound.play().catch(error => {
+                    console.log('炸弹爆炸音效播放失败:', error);
+                });
+                break;
+        }
+        
+        // 消耗盲盒
+        this.consumeItem(this.selectedSlot);
     }
     
     
@@ -1604,6 +1848,11 @@ class InventorySystem {
                 itemIcon.style.backgroundSize = 'cover';
                 itemIcon.style.backgroundPosition = 'center';
                 itemIcon.style.backgroundRepeat = 'no-repeat';
+            } else if (item.type === 'mysterybox') {
+                itemIcon.style.backgroundImage = 'url("assets/item_box.png")';
+                itemIcon.style.backgroundSize = 'cover';
+                itemIcon.style.backgroundPosition = 'center';
+                itemIcon.style.backgroundRepeat = 'no-repeat';
             } else {
                 // 其他物品使用颜色背景
                 itemIcon.style.background = item.color || 'rgba(255, 255, 255, 0.3)';
@@ -1705,6 +1954,17 @@ class InventorySystem {
                        '<p class="item-description">恢复生命值的珍贵药剂</p>' +
                        '<p class="item-effect">效果：立即恢复 +20 HP</p>' +
                        '<p class="item-effect">稀有度：稀有</p>';
+            case 'mysterybox':
+                var contentsInfo = '';
+                if (item.contents) {
+                    contentsInfo = '<p class="item-effect">内容物：' + item.contents.name + ' x' + item.contents.count + '</p>';
+                }
+                return '<h4>盲盒</h4>' +
+                       '<p class="item-description">神秘的惊喜盒子</p>' +
+                       '<p class="item-effect">效果：右键使用随机获得道具</p>' +
+                       contentsInfo +
+                       '<p class="item-effect">可能获得：馒头、生命药水、钩子、神速鞋、炸弹</p>' +
+                       '<p class="item-warning">注意：可能获得炸弹，小心使用</p>';
             default:
                 return '<h4>' + item.name + '</h4>' +
                        '<p class="item-description">未知物品</p>';
@@ -1955,6 +2215,86 @@ function startSpeedShoeGeneration() {
             }, Math.random() * 25000); // 25秒左右的随机延迟
         }
     }, 20000); // 每20秒检查一次
+}
+
+// 盲盒生成系统
+function startMysteryBoxGeneration() {
+    const MAX_MYSTERYBOX_COUNT = 1; // 盲盒生成频率很低
+    const MAX_ITEMS_IN_VIEW = 8; // 屏幕内最多8个道具
+    let mysteryBoxGenerationInterval;
+    
+    mysteryBoxGenerationInterval = setInterval(() => {
+        const itemsInView = countItemsInView();
+        if (gameEngine.gameObjects.size < MAX_MYSTERYBOX_COUNT + 20 + 5 + 2 + 1 + 1 && 
+            itemsInView < MAX_ITEMS_IN_VIEW && 
+            !gameEngine.isGameOver) {
+            setTimeout(() => {
+                if (!gameEngine.isGameOver) {
+                    generateRandomMysteryBox();
+                }
+            }, Math.random() * 30000); // 30秒左右的随机延迟
+        }
+    }, 25000); // 每25秒检查一次
+}
+
+function generateRandomMysteryBox() {
+    const GRID_SIZE = 50;
+    const MAX_DISTANCE = 20; // 盲盒可以生成在很远的地方
+    const player = gameEngine.getGameObject('player');
+    
+    if (!player) return;
+    
+    // 尝试找到空闲的网格位置
+    let attempts = 0;
+    const maxAttempts = 40;
+    
+    while (attempts < maxAttempts) {
+        const angle = Math.random() * 2 * Math.PI;
+        const distance = Math.floor(Math.random() * (MAX_DISTANCE - 10 + 1)) + 10; // 距离玩家10-20格
+        const rawX = player.mesh.position.x + Math.round(Math.cos(angle) * distance * GRID_SIZE);
+        const rawY = player.mesh.position.y + Math.round(Math.sin(angle) * distance * GRID_SIZE);
+        const gridX = Math.floor(rawX / GRID_SIZE);
+        const gridY = Math.floor(rawY / GRID_SIZE);
+        
+        // 检查网格是否被占用（包括玩家位置）
+        const existingObject = gameEngine.getGameObjectAtGrid(gridX, gridY);
+        if (!existingObject) {
+            const positionX = gridX * GRID_SIZE + GRID_SIZE / 2;
+            const positionY = gridY * GRID_SIZE + GRID_SIZE / 2;
+            createMysteryBox(new THREE.Vector3(positionX, positionY, 0));
+            return;
+        }
+        
+        attempts++;
+    }
+}
+
+// 创建盲盒
+function createMysteryBox(position) {
+    const mysteryBox = new GameObject(gameEngine, {
+        onSpawn: function() {
+            // 盲盒生成逻辑
+        },
+        onCollision: function(other) {
+            if (other.getComponent('PlayerComponent')) {
+                // 盲盒被拾取逻辑
+            }
+        },
+        onDestroy: function() {
+            // 盲盒销毁逻辑
+        }
+    });
+    
+    mysteryBox.addComponent('MysteryBoxComponent', new MysteryBoxComponent({
+        lifetime: 45000 // 45秒消失
+    }));
+    
+    gameEngine.addGameObject(mysteryBox.id, mysteryBox);
+    mysteryBox.spawn();
+    
+    if (position) {
+        mysteryBox.mesh.position.copy(position);
+    }
 }
 
 function generateRandomHealthPotion() {
@@ -2362,6 +2702,9 @@ startHealthPotionGeneration();
 // 启动神速鞋生成系统
 startSpeedShoeGeneration();
 
+// 启动盲盒生成系统
+startMysteryBoxGeneration();
+
 // 初始生成几个馒头
 for (let i = 0; i < 3; i++) {
     setTimeout(() => {
@@ -2385,6 +2728,11 @@ setTimeout(() => {
 setTimeout(() => {
     generateRandomSpeedShoe();
 }, 8000);
+
+// 初始生成一个盲盒
+setTimeout(() => {
+    generateRandomMysteryBox();
+}, 10000);
 
 // 窗口大小调整
 function resizeCanvas() {
