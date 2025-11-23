@@ -89,6 +89,119 @@
             color: #0066cc;
             text-decoration: none;
         }
+
+        /* 物品栏样式 */
+        #inventory {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            padding: 10px;
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+        }
+
+        .inventory-slot {
+            width: 50px;
+            height: 50px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .inventory-slot:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+
+        .inventory-slot.selected {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.2);
+        }
+
+        .inventory-slot .item-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            position: relative;
+        }
+
+        .item-count {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff4444;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .inventory-slot.empty .item-icon {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 40px 100px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
+        }
+
+        #game-over h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #ff4444;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+
+        #game-over p {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        #restart-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+
+        #restart-btn:hover {
+            background: #45a049;
+        }
     </style>
     <script>
         document.addEventListener('contextmenu', function (event) {
@@ -109,6 +222,32 @@
                 <div id="hp-display">HP: <span id="hp-value">-</span></div>
                 <div id="mt-display">MT: <span id="mt-value">-</span></div>
                 <div>位置：<span id="player-x">0</span>, <span id="player-y">0</span></div>
+            </div>
+            <!-- 物品栏 -->
+            <div id="inventory">
+                <div class="inventory-slot empty" data-slot="0">
+                    <div class="item-icon">空</div>
+                </div>
+                <div class="inventory-slot empty" data-slot="1">
+                    <div class="item-icon">空</div>
+                </div>
+                <div class="inventory-slot empty" data-slot="2">
+                    <div class="item-icon">空</div>
+                </div>
+                <div class="inventory-slot empty" data-slot="3">
+                    <div class="item-icon">空</div>
+                </div>
+                <div class="inventory-slot empty" data-slot="4">
+                    <div class="item-icon">空</div>
+                </div>
+            </div>
+
+            <div id="game-over">
+                <h1>GAME OVER</h1>
+                <p id="stats-time">生存时间: <span id="time-value">0</span>秒</p>
+                <p id="stats-mantous">收集馒头: <span id="mantous-value">0</span>个</p>
+                <p id="stats-score">最终得分: <span id="score-value">0</span></p>
+                <button id="restart-btn">重新开始</button>
             </div>
         </div>
     </div>
