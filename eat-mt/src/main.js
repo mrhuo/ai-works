@@ -468,6 +468,46 @@ class GameEngine {
             textElement.style.transform = 'translateY(-10px)';
         }, 10);
     }
+
+    // 创建水波纹效果
+    createRippleEffect(screenX, screenY) {
+        const ripple = document.createElement('div');
+        ripple.style.position = 'absolute';
+        ripple.style.left = `${screenX}px`;
+        ripple.style.top = `${screenY}px`;
+        ripple.style.width = '0px';
+        ripple.style.height = '0px';
+        ripple.style.borderRadius = '50%';
+        ripple.style.border = '1px solid rgba(255, 255, 255, 0.8)';
+        ripple.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+        ripple.style.transform = 'translate(-50%, -50%)';
+        ripple.style.pointerEvents = 'none';
+        ripple.style.zIndex = '998';
+        ripple.style.transition = 'all 0.3s ease-out';
+        
+        document.body.appendChild(ripple);
+        
+        // 开始动画
+        setTimeout(() => {
+            ripple.style.width = '40px';
+            ripple.style.height = '40px';
+            ripple.style.opacity = '0.8';
+        }, 10);
+        
+        // 结束动画
+        setTimeout(() => {
+            ripple.style.opacity = '0';
+            ripple.style.width = '60px';
+            ripple.style.height = '60px';
+        }, 150);
+        
+        // 移除元素
+        setTimeout(() => {
+            if (ripple.parentNode) {
+                ripple.parentNode.removeChild(ripple);
+            }
+        }, 450);
+    }
 }
 
 // 组件基类
@@ -2112,6 +2152,11 @@ function handleMouseDown(event) {
     }
     
     if (event.button === 0) {
+        // 创建水波纹效果
+        const screenX = event.clientX;
+        const screenY = event.clientY;
+        gameEngine.createRippleEffect(screenX, screenY);
+        
         const player = gameEngine.getGameObject('player');
         if (player && player.getComponent('PlayerComponent')) {
             const targetPosition = getGridCenter(mouseX, mouseY);
