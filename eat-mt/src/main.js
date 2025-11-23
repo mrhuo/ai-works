@@ -2589,8 +2589,17 @@ function gameOver() {
     // 停止背景音乐
     gameEngine.stopBackgroundMusic();
     
-    // 播放游戏结束音效
-    gameEngine.playGameOverSound();
+    // 播放游戏结束前奏音效
+    const gameOverPrevSound = new Audio('assets/audios/game_over_prev.mp3');
+    gameOverPrevSound.volume = 0.7;
+    gameOverPrevSound.play().catch(error => {
+        console.log('游戏结束前奏音效播放失败:', error);
+    });
+    
+    // 延迟播放游戏结束音效
+    setTimeout(() => {
+        gameEngine.playGameOverSound();
+    }, 2000); // 2秒后播放主游戏结束音效
     
     // 停止游戏循环
     gameEngine.stop();
