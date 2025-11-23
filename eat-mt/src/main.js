@@ -813,8 +813,8 @@ class PlayerComponent extends Component {
         for (const [id, other] of gameObjects) {
             if (id === 'player') continue;
             
-            // 检测与馒头、炸弹、钩子、生命药水、神速鞋和盲盒的碰撞
-            if (other.getComponent && (other.getComponent('MantouComponent') || other.getComponent('BombComponent') || other.getComponent('WallHookComponent') || other.getComponent('HealthPotionComponent') || other.getComponent('SpeedShoeComponent') || other.getComponent('MysteryBoxComponent'))) {
+            // 检测与馒头、炸弹、钩子、生命药水、神速鞋、盲盒和野牛的碰撞
+            if (other.getComponent && (other.getComponent('MantouComponent') || other.getComponent('BombComponent') || other.getComponent('WallHookComponent') || other.getComponent('HealthPotionComponent') || other.getComponent('SpeedShoeComponent') || other.getComponent('MysteryBoxComponent') || other.getComponent('WildCowComponent'))) {
                 const distance = this.gameObject.mesh.position.distanceTo(other.mesh.position);
                 
                 if (distance < GRID_SIZE) {
@@ -823,6 +823,11 @@ class PlayerComponent extends Component {
                     // 检查是否是盲盒
                     if (other.getComponent('MysteryBoxComponent')) {
                         console.log('检测到盲盒碰撞!');
+                    }
+                    
+                    // 检查是否是野牛
+                    if (other.getComponent('WildCowComponent')) {
+                        console.log('检测到野牛碰撞!');
                     }
                     
                     // 触发碰撞事件
@@ -1016,6 +1021,273 @@ class WallHookComponent extends Component {
             this.isActive = false;
             // 通知游戏对象销毁
             this.gameObject.destroy();
+        }
+    }
+}
+
+// 野牛组件
+class WildCowComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.health = config.health || 100;
+        this.maxHealth = this.health;
+        this.speed = config.speed || 2;
+        this.moveInterval = config.moveInterval || 3000; // 3秒移动一次
+        this.moveRadius = config.moveRadius || 5; // 移动半径（格子数）
+        this.spawnPosition = null; // 出生位置
+        this.targetPosition = null;
+        this.isMoving = false;
+        this.lastMoveTime = 0;
+        this.cowTextures = []; // 野牛纹理数组
+        this.currentTextureIndex = 0;
+        this.moveSoundCooldown = 0; // 移动音效冷却
+        this.lastMooTime = 0; // 上次叫声时间
+        this.mooInterval = 15000; // 15秒叫声间隔
+        this.playerDetected = false; // 玩家是否被检测到
+        this.mooSound = null; // 野牛叫声对象
+    }
+    
+    onAttach() {
+        const GRID_SIZE = 50;
+        const cowGeometry = new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE);
+        
+        // 加载4种野牛纹理
+        const textureLoader = new THREE.TextureLoader();
+        this.cowTextures = [
+            textureLoader.load('assets/animal_cow1.png'),
+            textureLoader.load('assets/animal_cow2.png'),
+            textureLoader.load('assets/animal_cow3.png'),
+            textureLoader.load('assets/animal_cow4.png')
+        ];
+        
+        // 随机选择一种野牛纹理
+        this.currentTextureIndex = Math.floor(Math.random() * this.cowTextures.length);
+        const cowMaterial = new THREE.MeshBasicMaterial({
+            map: this.cowTextures[this.currentTextureIndex],
+            transparent: true
+        });
+        
+        this.gameObject.mesh = new THREE.Mesh(cowGeometry, cowMaterial);
+        
+        // 确保野牛站立在格子中心
+        const currentGridX = Math.floor(this.gameObject.mesh.position.x / GRID_SIZE);
+        const currentGridY = Math.floor(this.gameObject.mesh.position.y / GRID_SIZE);
+        this.gameObject.mesh.position.set(
+            currentGridX * GRID_SIZE + GRID_SIZE / 2,
+            currentGridY * GRID_SIZE + GRID_SIZE / 2,
+            0
+        );
+        
+        // 记录出生位置
+        this.spawnPosition = this.gameObject.mesh.position.clone();
+        
+        // 设置初始移动目标
+        this.setRandomTargetPosition();
+    }
+    
+    update(deltaTime) {
+        if (!this.isActive) return;
+        
+        // 更新移动音效冷却
+        if (this.moveSoundCooldown > 0) {
+            this.moveSoundCooldown -= deltaTime;
+        }
+        
+        const currentTime = Date.now();
+        
+        // 检查是否需要设置新的移动目标
+        if (!this.isMoving && currentTime - this.lastMoveTime > this.moveInterval) {
+            this.setRandomTargetPosition();
+            this.lastMoveTime = currentTime;
+        }
+        
+        // 移动逻辑
+        if (this.isMoving) {
+            const distance = this.gameObject.mesh.position.distanceTo(this.targetPosition);
+            
+            if (distance > this.speed) {
+                const direction = this.targetPosition.clone().sub(this.gameObject.mesh.position).normalize();
+                this.gameObject.mesh.position.add(direction.multiplyScalar(this.speed));
+                
+                // 调整朝向
+                this.gameObject.mesh.rotation.z = Math.atan2(direction.y, direction.x) + Math.PI / 2;
+                
+                // 播放移动音效（冷却时间）
+                if (this.moveSoundCooldown <= 0) {
+                    this.playMoveSound();
+                    this.moveSoundCooldown = 2000; // 2秒冷却
+                }
+            } else {
+                // 到达目标位置
+                this.gameObject.mesh.position.copy(this.targetPosition);
+                this.isMoving = false;
+            }
+        }
+        
+        // 检查玩家距离并播放叫声
+        this.checkPlayerDistanceAndMoo();
+        
+        // 碰撞检测
+        this.checkCollisions();
+    }
+    
+    setRandomTargetPosition() {
+        const GRID_SIZE = 50;
+        
+        // 在3x3格子范围内随机选择一个相邻格子
+        const directions = [
+            { dx: 0, dy: 1 },   // 上
+            { dx: 1, dy: 0 },   // 右
+            { dx: 0, dy: -1 },  // 下
+            { dx: -1, dy: 0 }   // 左
+        ];
+        
+        // 随机选择一个方向
+        const direction = directions[Math.floor(Math.random() * directions.length)];
+        
+        // 计算当前网格位置
+        const currentGridX = Math.floor(this.gameObject.mesh.position.x / GRID_SIZE);
+        const currentGridY = Math.floor(this.gameObject.mesh.position.y / GRID_SIZE);
+        
+        // 计算目标网格位置（在3x3范围内）
+        const targetGridX = currentGridX + direction.dx;
+        const targetGridY = currentGridY + direction.dy;
+        
+        // 确保目标位置在3x3范围内（相对于出生位置）
+        const spawnGridX = Math.floor(this.spawnPosition.x / GRID_SIZE);
+        const spawnGridY = Math.floor(this.spawnPosition.y / GRID_SIZE);
+        
+        const maxDistance = 1; // 3x3范围，距离出生位置最多1格
+        if (Math.abs(targetGridX - spawnGridX) > maxDistance || 
+            Math.abs(targetGridY - spawnGridY) > maxDistance) {
+            // 如果超出范围，选择相反方向
+            this.targetPosition = new THREE.Vector3(
+                spawnGridX * GRID_SIZE + GRID_SIZE / 2,
+                spawnGridY * GRID_SIZE + GRID_SIZE / 2,
+                0
+            );
+        } else {
+            // 在范围内，设置目标位置
+            this.targetPosition = new THREE.Vector3(
+                targetGridX * GRID_SIZE + GRID_SIZE / 2,
+                targetGridY * GRID_SIZE + GRID_SIZE / 2,
+                0
+            );
+        }
+        
+        this.isMoving = true;
+    }
+    
+    playMoveSound() {
+        try {
+            const moveSound = new Audio('assets/audios/animal_cow.mp3');
+            moveSound.volume = 0.6;
+            moveSound.play().catch(error => {
+                console.log('野牛移动音效播放失败:', error);
+            });
+        } catch (error) {
+            console.log('创建野牛移动音效失败:', error);
+        }
+    }
+    
+    checkCollisions() {
+        const GRID_SIZE = 50;
+        const player = this.gameObject.engine.getGameObject('player');
+        
+        if (player) {
+            const distance = this.gameObject.mesh.position.distanceTo(player.mesh.position);
+            
+            if (distance < GRID_SIZE) {
+                // 触发碰撞
+                this.gameObject.onCollide(player);
+                player.onCollide(this.gameObject);
+            }
+        }
+    }
+    
+    onCollision(other) {
+        if (other.getComponent('PlayerComponent')) {
+            // 玩家碰撞野牛
+            this.gameObject.engine.createFloatingText('-50', '#ff4444');
+            this.gameObject.engine.createFloatingText('野牛攻击!', '#ff8800');
+            
+            // 玩家生命值减少50
+            this.gameObject.engine.HP -= 50;
+            
+            // 野牛生命值减少5
+            this.health -= 5;
+            
+            // 检查玩家是否死亡
+            if (this.gameObject.engine.HP <= 0) {
+                this.gameObject.engine.HP = 0;
+                gameOver();
+            }
+            
+            // 检查野牛是否死亡
+            if (this.health <= 0) {
+                this.gameObject.engine.createFloatingText('野牛死亡!', '#44ff44');
+                this.isActive = false;
+                this.gameObject.destroy();
+            }
+            
+            // 更新HP显示
+            const hpDisplay = document.getElementById('hp-value');
+            if (hpDisplay) {
+                hpDisplay.textContent = this.gameObject.engine.HP;
+            }
+            
+            // 播放受伤音效
+            const hurtSound = new Audio('assets/audios/bomb_bombed.mp3');
+            hurtSound.volume = 0.7;
+            hurtSound.play().catch(error => {
+                console.log('受伤音效播放失败:', error);
+            });
+        }
+    }
+    
+    takeDamage(amount) {
+        this.health -= amount;
+        
+        if (this.health <= 0) {
+            this.isActive = false;
+            this.gameObject.destroy();
+        }
+    }
+    
+    // 检查玩家距离并播放叫声
+    checkPlayerDistanceAndMoo() {
+        const player = this.gameObject.engine.getGameObject('player');
+        if (!player) return;
+        
+        const currentTime = Date.now();
+        const distance = this.gameObject.mesh.position.distanceTo(player.mesh.position);
+        
+        // 如果玩家在10格范围内（500像素），并且距离上次叫声超过15秒
+        if (distance <= 500 && currentTime - this.lastMooTime > this.mooInterval) {
+            this.playMooSound(distance);
+            this.lastMooTime = currentTime;
+        }
+    }
+    
+    // 播放野牛叫声，音量随距离调整
+    playMooSound(distance) {
+        try {
+            // 计算音量：距离越近音量越大，最大0.8，最小0.1
+            const maxDistance = 500; // 10格
+            const volume = Math.max(0.1, 0.8 * (1 - distance / maxDistance));
+            
+            // 创建新的音效对象
+            const mooSound = new Audio('assets/audios/animal_cow.mp3');
+            mooSound.volume = volume;
+            mooSound.play().catch(error => {
+                console.log('野牛叫声播放失败:', error);
+            });
+            
+            // 显示叫声提示
+            this.gameObject.engine.createFloatingText('哞~', '#ffaa00');
+            
+        } catch (error) {
+            console.log('创建野牛叫声失败:', error);
         }
     }
 }
@@ -2311,6 +2583,26 @@ function startSpeedShoeGeneration() {
     }, 20000); // 每20秒检查一次
 }
 
+// 野牛生成系统
+function startWildCowGeneration() {
+    const MAX_WILDCOW_COUNT = 3; // 最多3只野牛
+    const MAX_ITEMS_IN_VIEW = 8; // 屏幕内最多8个道具
+    let wildCowGenerationInterval;
+    
+    wildCowGenerationInterval = setInterval(() => {
+        const itemsInView = countItemsInView();
+        if (gameEngine.gameObjects.size < MAX_WILDCOW_COUNT + 20 + 5 + 2 + 1 + 1 + 1 && 
+            itemsInView < MAX_ITEMS_IN_VIEW && 
+            !gameEngine.isGameOver) {
+            setTimeout(() => {
+                if (!gameEngine.isGameOver) {
+                    generateRandomWildCow();
+                }
+            }, Math.random() * 20000); // 20秒左右的随机延迟
+        }
+    }, 15000); // 每15秒检查一次
+}
+
 // 盲盒生成系统
 function startMysteryBoxGeneration() {
     const MAX_MYSTERYBOX_COUNT = 1; // 盲盒生成频率很低
@@ -2319,7 +2611,7 @@ function startMysteryBoxGeneration() {
     
     mysteryBoxGenerationInterval = setInterval(() => {
         const itemsInView = countItemsInView();
-        if (gameEngine.gameObjects.size < MAX_MYSTERYBOX_COUNT + 20 + 5 + 2 + 1 + 1 && 
+        if (gameEngine.gameObjects.size < MAX_MYSTERYBOX_COUNT + 20 + 5 + 2 + 1 + 1 + 3 && 
             itemsInView < MAX_ITEMS_IN_VIEW && 
             !gameEngine.isGameOver) {
             setTimeout(() => {
@@ -2635,6 +2927,70 @@ function createSpeedShoe(position) {
     }
 }
 
+// 生成随机野牛
+function generateRandomWildCow() {
+    const GRID_SIZE = 50;
+    const MAX_DISTANCE = 20; // 野牛可以生成在较远的地方
+    const player = gameEngine.getGameObject('player');
+    
+    if (!player) return;
+    
+    // 尝试找到空闲的网格位置
+    let attempts = 0;
+    const maxAttempts = 30;
+    
+    while (attempts < maxAttempts) {
+        const angle = Math.random() * 2 * Math.PI;
+        const distance = Math.floor(Math.random() * (MAX_DISTANCE - 10 + 1)) + 10; // 距离玩家10-20格
+        const rawX = player.mesh.position.x + Math.round(Math.cos(angle) * distance * GRID_SIZE);
+        const rawY = player.mesh.position.y + Math.round(Math.sin(angle) * distance * GRID_SIZE);
+        const gridX = Math.floor(rawX / GRID_SIZE);
+        const gridY = Math.floor(rawY / GRID_SIZE);
+        
+        // 检查网格是否被占用（包括玩家位置）
+        const existingObject = gameEngine.getGameObjectAtGrid(gridX, gridY);
+        if (!existingObject) {
+            const positionX = gridX * GRID_SIZE + GRID_SIZE / 2;
+            const positionY = gridY * GRID_SIZE + GRID_SIZE / 2;
+            createWildCow(new THREE.Vector3(positionX, positionY, 0));
+            return;
+        }
+        
+        attempts++;
+    }
+}
+
+// 创建野牛
+function createWildCow(position) {
+    const wildCow = new GameObject(gameEngine, {
+        onSpawn: function() {
+            // 野牛生成逻辑
+        },
+        onCollision: function(other) {
+            if (other.getComponent('PlayerComponent')) {
+                // 野牛碰撞逻辑
+            }
+        },
+        onDestroy: function() {
+            // 野牛销毁逻辑
+        }
+    });
+    
+    wildCow.addComponent('WildCowComponent', new WildCowComponent({
+        health: 100,
+        speed: 2,
+        moveInterval: 3000,
+        moveRadius: 5
+    }));
+    
+    gameEngine.addGameObject(wildCow.id, wildCow);
+    wildCow.spawn();
+    
+    if (position) {
+        wildCow.mesh.position.copy(position);
+    }
+}
+
 // HP更新系统
 let hpInterval = setInterval(updateHP, 1000);
 function updateHP() {
@@ -2808,6 +3164,9 @@ startSpeedShoeGeneration();
 // 启动盲盒生成系统
 startMysteryBoxGeneration();
 
+// 启动野牛生成系统
+startWildCowGeneration();
+
 // 初始生成几个馒头
 for (let i = 0; i < 3; i++) {
     setTimeout(() => {
@@ -2836,6 +3195,11 @@ setTimeout(() => {
 setTimeout(() => {
     generateRandomMysteryBox();
 }, 10000);
+
+// 初始生成一个野牛
+setTimeout(() => {
+    generateRandomWildCow();
+}, 12000);
 
 // 窗口大小调整
 function resizeCanvas() {
