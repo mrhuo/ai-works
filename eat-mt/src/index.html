@@ -139,6 +139,52 @@
             position: relative;
         }
 
+        /* 物品提示框样式 */
+        .item-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+            max-width: 200px;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .item-tooltip.show {
+            opacity: 1;
+        }
+
+        .item-tooltip h4 {
+            margin: 0 0 5px 0;
+            color: #4CAF50;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .item-tooltip p {
+            margin: 3px 0;
+        }
+
+        .item-tooltip .item-description {
+            color: #cccccc;
+            font-style: italic;
+        }
+
+        .item-tooltip .item-effect {
+            color: #ffcc00;
+        }
+
+        .item-tooltip .item-warning {
+            color: #ff6b6b;
+        }
+
         .item-count {
             position: absolute;
             top: -5px;

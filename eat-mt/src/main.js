@@ -1285,6 +1285,15 @@ class InventorySystem {
             slot.addEventListener('click', () => {
                 this.selectSlot(index);
             });
+            
+            // 添加鼠标悬停事件监听
+            slot.addEventListener('mouseenter', (e) => {
+                this.showItemTooltip(e, index);
+            });
+            
+            slot.addEventListener('mouseleave', () => {
+                this.hideItemTooltip();
+            });
         });
         
         // 添加鼠标右键事件监听
@@ -1292,6 +1301,9 @@ class InventorySystem {
             e.preventDefault();
             this.useSelectedItem(e);
         });
+        
+        // 创建提示框元素
+        this.createTooltipElement();
     }
     
     // 选择物品栏格子（点击切换选中状态）
@@ -1642,6 +1654,61 @@ class InventorySystem {
             return this.slots[this.selectedSlot];
         }
         return null;
+    }
+
+    // 创建提示框元素
+    createTooltipElement() {
+        this.tooltip = document.createElement('div');
+        this.tooltip.className = 'item-tooltip';
+        document.body.appendChild(this.tooltip);
+    }
+
+    // 显示物品提示框
+    showItemTooltip(event, slotIndex) {
+        const item = this.slots[slotIndex];
+        if (!item) return;
+
+        // 获取物品描述信息
+        const tooltipContent = this.getItemTooltipContent(item);
+        this.tooltip.innerHTML = tooltipContent;
+        this.tooltip.classList.add('show');
+
+        // 定位提示框
+        const slotElement = event.currentTarget;
+        const rect = slotElement.getBoundingClientRect();
+        
+        // 计算位置（在物品上方显示，左边距与物品栏格子对齐）
+        const tooltipX = rect.left;
+        const tooltipY = rect.top - 10; // 在物品上方10像素
+        
+        this.tooltip.style.left = `${tooltipX}px`;
+        this.tooltip.style.top = `${tooltipY}px`;
+        this.tooltip.style.transform = 'translateY(-100%)';
+    }
+
+    // 隐藏物品提示框
+    hideItemTooltip() {
+        this.tooltip.classList.remove('show');
+    }
+
+    // 获取物品提示框内容
+    getItemTooltipContent(item) {
+        switch(item.type) {
+            case 'wallhook':
+                return '<h4>钩子</h4>' +
+                       '<p class="item-description">远程抓取道具的利器</p>' +
+                       '<p class="item-effect">效果：右键点击远处的道具将其拉回</p>' +
+                       '<p class="item-effect">可抓取：馒头、炸弹、药水、钩子</p>' +
+                       '<p class="item-warning">注意：抓取炸弹会立即引爆</p>';
+            case 'healthpotion':
+                return '<h4>生命药水</h4>' +
+                       '<p class="item-description">恢复生命值的珍贵药剂</p>' +
+                       '<p class="item-effect">效果：立即恢复 +20 HP</p>' +
+                       '<p class="item-effect">稀有度：稀有</p>';
+            default:
+                return '<h4>' + item.name + '</h4>' +
+                       '<p class="item-description">未知物品</p>';
+        }
     }
 }
 
