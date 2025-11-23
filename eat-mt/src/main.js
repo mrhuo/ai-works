@@ -170,8 +170,72 @@ class GameEngine {
     
     // 音效系统
     playSound(name, options = {}) {
-        // 简单的音效播放实现
-        // 这里可以扩展为实际的音效播放
+        // 根据音效名称播放对应的音效
+        let audioFile = '';
+        let volume = 0.7;
+        
+        switch(name) {
+            case 'player_spawn':
+                // audioFile = 'assets/audios/get_mantou.mp3';
+                volume = 0.8;
+                break;
+            case 'player_move':
+                // audioFile = 'assets/audios/action_denied.mp3';
+                volume = 0.5;
+                break;
+            case 'mantou_spawn':
+                // audioFile = 'assets/audios/get_mantou.mp3';
+                volume = 0.6;
+                break;
+            case 'mantou_eat':
+                audioFile = 'assets/audios/get_mantou.mp3';
+                volume = 0.8;
+                break;
+            case 'wallhook_spawn':
+                // audioFile = 'assets/audios/get_mantou.mp3';
+                volume = 0.6;
+                break;
+            case 'wallhook_pickup':
+                audioFile = 'assets/audios/get_mantou.mp3';
+                volume = 0.8;
+                break;
+            case 'shoe_spawn':
+                // audioFile = 'assets/audios/get_mantou.mp3';
+                volume = 0.6;
+                break;
+            case 'shoe_pickup':
+                audioFile = 'assets/audios/get_mantou.mp3';
+                volume = 0.8;
+                break;
+            case 'potion_spawn':
+                // audioFile = 'assets/audios/get_mantou.mp3';
+                volume = 0.6;
+                break;
+            case 'potion_pickup':
+                audioFile = 'assets/audios/get_mantou.mp3';
+                volume = 0.8;
+                break;
+            case 'bomb_spawn':
+                // audioFile = 'assets/audios/bomb_bombed.mp3';
+                volume = 0.6;
+                break;
+            default:
+                return; // 未知音效名称
+        }
+        
+        if (!audioFile) {
+            // console.log(`音效 ${name} 未找到对应的音频文件`);
+            return;
+        }
+        try {
+            const sound = new Audio(audioFile);
+            sound.volume = volume;
+            sound.play().catch(error => {
+                console.log(`音效 ${name} 播放失败:`, error);
+            });
+        } catch (error) {
+            console.log(`创建音效 ${name} 失败:`, error);
+        }
     }
 
     // 播放背景音乐
