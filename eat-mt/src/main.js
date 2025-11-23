@@ -1022,7 +1022,13 @@ class MysteryBoxComponent extends Component {
             // 被玩家拾取
             this.gameObject.engine.playSound('mysterybox_pickup');
             this.gameObject.engine.createFloatingText('获得盲盒!', '#ff69b4');
-            this.gameObject.engine.playGetItemSound();
+            
+            // 播放获得盲盒音效
+            const getBoxSound = new Audio('assets/audios/get_box.mp3');
+            getBoxSound.volume = 0.8;
+            getBoxSound.play().catch(error => {
+                console.log('获得盲盒音效播放失败:', error);
+            });
             
             // 添加到物品栏
             const item = {
@@ -1472,7 +1478,7 @@ class InventorySystem {
         const mouseY = canvas.height / 2 - (event.clientY - rect.top);
         
         // 计算目标位置
-        const targetPosition = this.getGridCenter(mouseX, mouseY);
+        const targetPosition = this.getGridCenter(mouseX, mouseY, item.type === 'wallhook');
         
         // 根据物品类型执行不同的使用逻辑
         if (item.type === 'wallhook') {
@@ -1491,6 +1497,31 @@ class InventorySystem {
         const GRID_SIZE = 50;
         const targetGridX = Math.floor(targetPosition.x / GRID_SIZE);
         const targetGridY = Math.floor(targetPosition.y / GRID_SIZE);
+        
+        // 检查目标是否在以玩家为中心的8格半径范围内
+        const player = gameEngine.getGameObject('player');
+        if (!player) return;
+        
+        const playerGridX = Math.floor(player.mesh.position.x / GRID_SIZE);
+        const playerGridY = Math.floor(player.mesh.position.y / GRID_SIZE);
+        
+        // 计算玩家与目标之间的实际距离（使用欧几里得距离）
+        const deltaX = targetGridX - playerGridX;
+        const deltaY = targetGridY - playerGridY;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance > 8) {
+            // 目标超出8格半径范围
+            gameEngine.createFloatingText('超出钩子范围!', '#ff4444');
+            
+            // 播放操作被拒绝音效
+            const actionDeniedSound = new Audio('assets/audios/action_denied.mp3');
+            actionDeniedSound.volume = 0.7;
+            actionDeniedSound.play().catch(error => {
+                console.log('操作被拒绝音效播放失败:', error);
+            });
+            return;
+        }
         
         // 查找目标位置上的游戏对象
         const targetObject = gameEngine.getGameObjectAtGrid(targetGridX, targetGridY);
@@ -1527,14 +1558,30 @@ class InventorySystem {
             } else if (targetObject.getComponent('WallHookComponent')) {
                 // 拉回钩子
                 this.pullObjectToPlayer(targetObject, player);
-                gameEngine.createFloatingText('拉回钩子!', '#ffff00');
+                this.gameObject.engine.createFloatingText('拉回钩子!', '#ffff00');
+                
+                // 消耗钩子
+                this.consumeItem(this.selectedSlot);
+                
+            } else if (targetObject.getComponent('MysteryBoxComponent')) {
+                // 拉回盲盒
+                this.pullObjectToPlayer(targetObject, player);
+                this.gameObject.engine.createFloatingText('拉回盲盒!', '#ff69b4');
+                
+                // 消耗钩子
+                this.consumeItem(this.selectedSlot);
+                
+            } else if (targetObject.getComponent('SpeedShoeComponent')) {
+                // 拉回神速鞋
+                this.pullObjectToPlayer(targetObject, player);
+                this.gameObject.engine.createFloatingText('拉回神速鞋!', '#00ffff');
                 
                 // 消耗钩子
                 this.consumeItem(this.selectedSlot);
                 
             } else {
                 // 目标不是可拉取的对象
-                gameEngine.createFloatingText('无效目标', '#ff4444');
+                this.gameObject.engine.createFloatingText('无效目标', '#ff4444');
             }
         } else {
             // 目标位置没有对象
@@ -1755,7 +1802,7 @@ class InventorySystem {
     }
     
     // 计算网格中心位置
-    getGridCenter(screenX, screenY) {
+    getGridCenter(screenX, screenY, isHookUsage = false) {
         const GRID_SIZE = 50;
         let gridX = Math.floor((screenX + gameEngine.camera.position.x) / GRID_SIZE) * GRID_SIZE + GRID_SIZE / 2;
         let gridY = Math.floor((screenY + gameEngine.camera.position.y) / GRID_SIZE) * GRID_SIZE + GRID_SIZE / 2;
@@ -1776,8 +1823,10 @@ class InventorySystem {
         const deltaY = targetGridY - playerGridY;
         const distance = Math.hypot(deltaX, deltaY);
 
-        const MAX_MOVE_GRIDS = 5;
-        if (distance > MAX_MOVE_GRIDS) {
+        // 如果是钩子使用，不限制距离（钩子有自己的8格范围检查）
+        // 如果是普通移动，限制在5格范围内
+        const MAX_MOVE_GRIDS = isHookUsage ? 100 : 5; // 钩子使用时给一个很大的值，让钩子自己的范围检查生效
+        if (distance > MAX_MOVE_GRIDS && !isHookUsage) {
             // 按方向限制最大移动距离
             const angle = Math.atan2(deltaY, deltaX);
             const adjustedDeltaX = Math.round(MAX_MOVE_GRIDS * Math.cos(angle));
